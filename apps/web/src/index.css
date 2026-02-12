@@ -1,0 +1,77 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+header {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 2rem;
+}
+
+.media-card {
+  background: #333;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.media-card:hover {
+  transform: translateY(-5px);
+  background: #444;
+}
+
+.poster-placeholder {
+  font-size: 4rem;
+  text-align: center;
+  background: #222;
+  border-radius: 4px;
+  padding: 2rem 0;
+  margin-bottom: 1rem;
+}
+
+.player-wrapper {
+  margin-bottom: 3rem;
+  background: #000;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.video-player {
+  width: 100%;
+  max-height: 70vh;
+  background: #000;
+}
+
+.close-btn {
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  background: #d33;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}

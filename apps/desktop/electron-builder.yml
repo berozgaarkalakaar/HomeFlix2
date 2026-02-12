@@ -1,0 +1,13 @@
+appId: com.homeflix.desktop
+productName: HomeFlix
+electronVersion: 26.0.0
+directories:
+  output: release
+files:
+  - dist/**/*
+  - package.json
+mac:
+  target: dir
+  category: public.app-category.entertainment
+win:
+  target: nsis

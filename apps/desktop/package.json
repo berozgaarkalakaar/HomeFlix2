@@ -1,0 +1,17 @@
+{
+    "name": "homeflix-desktop",
+    "version": "1.0.0",
+    "description": "Desktop client for HomeFlix media server",
+    "author": "HomeFlix Team",
+    "main": "dist/main.js",
+    "scripts": {
+        "dev": "npx tsc && npx electron .",
+        "build": "npx tsc",
+        "dist": "npm run build && npx electron-builder"
+    },
+    "devDependencies": {
+        "electron": "^26.6.10",
+        "electron-builder": "^24.13.3",
+        "typescript": "^5.0.0"
+    }
+}
