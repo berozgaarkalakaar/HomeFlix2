@@ -1,77 +1,135 @@
+@import "tailwindcss";
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+
+  /* Colors */
+  --bg-color: #0F1014;
+  --surface-color: #1F2129;
+  --accent-color: #E5A00D;
+  /* Amber */
+  --text-high: #FFFFFF;
+  --text-medium: #A0A0A0;
+  --text-low: #666666;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 48px;
+
+  /* Layout */
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 72px;
+
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--text-high);
+  background-color: var(--bg-color);
 }
 
+html,
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #000000;
+  /* Force black */
+  color: var(--text-high);
+  overflow-x: hidden;
 }
 
+/* Typography Utility */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  color: var(--text-high);
+}
+
+a {
+  color: var(--text-high);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--accent-color);
+}
+
+/* App Layout */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--space-lg);
+  margin-left: var(--sidebar-width);
+  /* Default expanded */
+  transition: margin-left 0.3s ease;
+  width: calc(100% - var(--sidebar-width));
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    padding-bottom: 80px;
+    /* Space for bottom nav if needed */
+  }
+}
+
+/* Component: Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background-color: var(--surface-color);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  z-index: 500;
+  transition: width 0.3s ease;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 8px;
+  color: var(--text-medium);
+  margin-bottom: var(--space-xs);
+  transition: all 0.2s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-high);
+}
+
+.nav-link.active {
+  border-left: 3px solid var(--accent-color);
+}
+
+/* Legacy Utility Classes (Keep for compatibility until refactor complete) */
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-header {
-  margin-bottom: 2rem;
-  border-bottom: 1px solid #333;
-  padding-bottom: 1rem;
+  padding: 0;
 }
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 2rem;
-}
-
-.media-card {
-  background: #333;
-  border-radius: 8px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.media-card:hover {
-  transform: translateY(-5px);
-  background: #444;
-}
-
-.poster-placeholder {
-  font-size: 4rem;
-  text-align: center;
-  background: #222;
-  border-radius: 4px;
-  padding: 2rem 0;
-  margin-bottom: 1rem;
-}
-
-.player-wrapper {
-  margin-bottom: 3rem;
-  background: #000;
-  padding: 1rem;
-  border-radius: 8px;
-}
-
-.video-player {
-  width: 100%;
-  max-height: 70vh;
-  background: #000;
-}
-
-.close-btn {
-  margin-bottom: 1rem;
-  padding: 0.5rem 1rem;
-  background: #d33;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-md);
 }
