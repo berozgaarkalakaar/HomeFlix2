@@ -2,30 +2,18 @@ import { Router } from 'express';
 import { scanner } from '../core/scanner';
 import { streamer } from '../core/streamer';
 import { db } from '../db';
-import { libraries, mediaItems, users } from '../db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { libraries, mediaItems, users, images, watchHistory } from '../db/schema';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 
 
-import { hashPassword, verifyPassword, generateToken, verifyToken } from '../core/auth';
+import { hashPassword, verifyPassword, generateToken, verifyToken, authenticateToken } from '../core/auth';
 
 const router = Router();
 
-// Auth Middleware
-const authenticate = (req: any, res: any, next: any) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) return res.sendStatus(401);
-
-    const user = verifyToken(token);
-    if (!user) return res.sendStatus(403);
-
-    req.user = user;
-    next();
-};
+// Auth Middleware used to be here, now imported as authenticateToken
 
 router.get('/health/stream', async (req, res) => {
     // 1. Check if cache dir exists
@@ -71,21 +59,79 @@ router.get('/health/stream', async (req, res) => {
 
 // -- Libraries --
 
-router.get('/libraries', async (req, res) => {
+router.get('/libraries', authenticateToken, async (req, res) => {
     const allLibraries = await db.select().from(libraries).all();
-    res.json(allLibraries);
+
+    // Get counts
+    const counts = await db
+        .select({
+            libraryId: mediaItems.libraryId,
+            count: sql<number>`count(*)`
+        })
+        .from(mediaItems)
+        .groupBy(mediaItems.libraryId)
+        .all();
+
+    const result = allLibraries.map(lib => ({
+        ...lib,
+        itemCount: counts.find(c => c.libraryId === lib.id)?.count || 0
+    }));
+
+    res.json(result);
 });
 
-router.post('/libraries', async (req, res) => {
-    const { name, type, path } = req.body;
+router.post('/libraries', authenticateToken, async (req, res) => {
+    const { name, type, path: folderPath } = req.body;
+
+    if (!folderPath || !name || !type) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!fs.existsSync(folderPath)) {
+        return res.status(400).json({ error: 'Path does not exist on server' });
+    }
+
+    const stats = fs.statSync(folderPath);
+    if (!stats.isDirectory()) {
+        return res.status(400).json({ error: 'Path is strictly for a file, not a folder. Please link a directory.' });
+    }
+
+    // Check if already exists
+    const existing = await db.query.libraries.findFirst({
+        where: eq(libraries.path, folderPath)
+    });
+
+    if (existing) {
+        return res.status(409).json({ error: 'Library path already exists' });
+    }
+
     const id = uuidv4();
-    await db.insert(libraries).values({ id, name, type, path });
+    await db.insert(libraries).values({ id, name, type, path: folderPath });
+
     // Trigger initial scan
     scanner.scanLibrary(id).catch(console.error);
-    res.json({ id, name, type, path });
+    res.json({ id, name, type, path: folderPath });
 });
 
-router.post('/libraries/:id/scan', async (req, res) => {
+router.delete('/libraries/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    // Check if exists
+    const lib = await db.query.libraries.findFirst({ where: eq(libraries.id, id) });
+    if (!lib) return res.sendStatus(404);
+
+    // Delete library record (Cascade should handle items if configured, but for now we might leave items or need manual cleanup)
+    // Drizzle SQLite doesn't strictly enforce foreign key cascades unless enabled.
+    // For MVP, deleting the library entry is enough to hide it, but items remain.
+    // Ideally we delete items too.
+
+    await db.delete(libraries).where(eq(libraries.id, id));
+    await db.delete(mediaItems).where(eq(mediaItems.libraryId, id));
+
+    res.sendStatus(200);
+});
+
+router.post('/libraries/:id/scan', authenticateToken, async (req, res) => {
     const { id } = req.params;
     scanner.scanLibrary(id).catch(console.error); // Async scan
     res.json({ message: 'Scan started' });
@@ -156,7 +202,7 @@ router.get('/library/items', async (req, res) => {
     }
 });
 
-router.get('/library/items/:id', authenticate, async (req: any, res) => {
+router.get('/library/items/:id', authenticateToken, async (req: any, res) => {
     const { id } = req.params;
 
     // Fetch item
@@ -204,6 +250,8 @@ router.get('/items/:id/backdrop', async (req, res) => {
     res.sendFile(image.path);
 });
 
+router.get('/stream/:id', streamer.streamMedia.bind(streamer));
+
 
 
 router.post('/auth/register', async (req, res) => {
@@ -241,15 +289,15 @@ router.post('/auth/login', async (req, res) => {
     }
 });
 
-router.get('/auth/me', authenticate, async (req: any, res) => {
+router.get('/auth/me', authenticateToken, async (req: any, res) => {
     const user = await db.query.users.findFirst({ where: eq(users.id, req.user.userId) });
     if (!user) return res.sendStatus(404);
     res.json({ id: user.id, username: user.username, isAdmin: user.isAdmin });
 });
 
-import { watchHistory } from '../db/schema';
 
-router.get('/user/progress', authenticate, async (req: any, res) => {
+
+router.get('/user/progress', authenticateToken, async (req: any, res) => {
     const history = await db.select().from(watchHistory).where(eq(watchHistory.userId, req.user.userId)).all();
     const progressMap: Record<string, any> = {};
     history.forEach(h => {
@@ -259,7 +307,7 @@ router.get('/user/progress', authenticate, async (req: any, res) => {
 });
 
 // Fix missing route def
-router.post('/user/progress/:id', authenticate, async (req: any, res) => {
+router.post('/user/progress/:id', authenticateToken, async (req: any, res) => {
     const { id } = req.params;
     const { progressSeconds, completed } = req.body;
 
@@ -283,7 +331,7 @@ router.post('/user/progress/:id', authenticate, async (req: any, res) => {
 
 // -- Home Screen & Preferences --
 
-router.get('/home', authenticate, async (req: any, res) => {
+router.get('/home', authenticateToken, async (req: any, res) => {
     try {
         const user = await db.query.users.findFirst({ where: eq(users.id, req.user.userId) });
         if (!user) return res.sendStatus(404);
@@ -363,7 +411,7 @@ router.get('/home', authenticate, async (req: any, res) => {
     }
 });
 
-router.post('/home/preferences', authenticate, async (req: any, res) => {
+router.post('/home/preferences', authenticateToken, async (req: any, res) => {
     const { hubs } = req.body;
     if (!hubs) return res.status(400).json({ error: 'Missing hubs' });
 

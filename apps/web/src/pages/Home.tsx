@@ -102,7 +102,7 @@ export default function Home() {
     const fetchHome = async () => {
         setLoading(true);
         try {
-            const res = await axios.get('/api/home', {
+            const res = await axios.get('/api/v1/home', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setHubs(res.data);
@@ -136,7 +136,7 @@ export default function Home() {
     const savePreferences = async (newConfig: any[]) => {
         try {
             setLoading(true);
-            await axios.post('/api/home/preferences',
+            await axios.post('/api/v1/home/preferences',
                 { hubs: newConfig },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

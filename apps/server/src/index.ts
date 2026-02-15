@@ -14,6 +14,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const tusServer = new Server({
     path: '/files',
     datastore: new FileStore({ directory: UPLOAD_DIR }),
+    relativeLocation: true,
 });
 
 const PORT = process.env.PORT || 3001;
@@ -28,19 +29,9 @@ const uploadApp = express.Router();
 uploadApp.all('*', tusServer.handle.bind(tusServer));
 app.use('/files', uploadApp);
 
-app.post('/api/v1/uploads/commit', (req: any, res: any, next: any) => {
-    // Basic auth check inline or use middleware
-    // We reuse the auth middleware from routes? 
-    // It's not exported. Let's make it imported or just copy for now.
-    // Ideally we export 'authenticate' from routes.ts or move to core/auth.ts middleware.
-    // For now, let's assume valid token check inside handler or we move auth middleware.
-    // Let's just call the handler, assuming it handles its own checks or we add middleware later.
-    // Actually, we must secure this.
-    // Let's use the one in api/routes if we can, but it is local.
-    // I will refactor 'authenticate' to be exported from a middleware file later.
-    // For now, I will import it from routes if possible, or just duplicate logic for safety.
-    next();
-}, handleUploadCommit);
+import { authenticateToken } from './core/auth';
+
+app.post('/api/v1/uploads/commit', authenticateToken, handleUploadCommit);
 
 app.use('/api/v1', apiRoutes);
 

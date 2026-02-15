@@ -34,6 +34,7 @@ export const mediaItems = sqliteTable('media_items', {
     audioChannels: integer('audio_channels'),
 
     metadata: text('metadata', { mode: 'json' }), // JSON string for extra flexibility
+    chapters: text('chapters', { mode: 'json' }), // Array of { title, start, end }
     addedAt: integer('added_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
 });

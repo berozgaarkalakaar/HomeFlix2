@@ -91,7 +91,7 @@ export function HubRow({ title, items, type, loading }: HubRowProps) {
                             <div className="relative aspect-[2/3] bg-surface rounded-lg overflow-hidden mb-2 shadow-lg transition-transform duration-300 group-hover/card:scale-105 group-focus/card:scale-105 ring-offset-background group-focus-visible/card:ring-2 group-focus-visible/card:ring-ring border border-white/5">
                                 {/* Poster Image */}
                                 <img
-                                    src={`/api/items/${item.id}/poster`}
+                                    src={`/api/v1/items/${item.id}/poster`}
                                     alt={item.title}
                                     className="w-full h-full object-cover"
                                     loading="lazy"

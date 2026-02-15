@@ -18,12 +18,16 @@ cache
 .env.local
 
 # Database
-tasks.db
+*.db
+*.sqlite
+apps/server/data/*.db
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+apps/server/server.log
+*.log
 
 # Desktop
 apps/desktop/release
@@ -31,3 +35,8 @@ apps/desktop/dist
 
 # iOS
 apps/ios/HomeFlix/HomeFlix.xcodeproj/project.xcworkspace/xcuserdata
+
+# Media & Temp
+apps/server/media/
+test_stream_output.mp4
+test_media/

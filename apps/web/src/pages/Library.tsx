@@ -63,7 +63,7 @@ export default function Library() {
                 const mediaType = getMediaType();
                 const limit = 50;
 
-                const res = await axios.get('/api/library/items', {
+                const res = await axios.get('/api/v1/library/items', {
                     params: {
                         type: mediaType,
                         page,
@@ -109,8 +109,8 @@ export default function Library() {
             {activeItem && (
                 <VideoPlayer
                     itemId={activeItem.id}
-                    src={`/api/stream/${activeItem.id}`}
-                    poster={`/api/items/${activeItem.id}/poster`}
+                    src={`/api/v1/stream/${activeItem.id}`}
+                    poster={`/api/v1/items/${activeItem.id}/poster`}
                     initialTime={activeItem.progressSeconds || 0}
                     onClose={() => setActiveItem(null)}
                 />

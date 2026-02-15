@@ -30,7 +30,7 @@ export function MediaCard({ item, onClick, className }: MediaCardProps) {
             <div className="relative aspect-[2/3] bg-surface rounded-lg overflow-hidden mb-2 shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:z-10 ring-offset-background group-hover:ring-2 group-hover:ring-primary">
                 {/* Poster Image */}
                 <img
-                    src={`/api/items/${item.id}/poster`}
+                    src={`/api/v1/items/${item.id}/poster`}
                     alt={item.title}
                     className="w-full h-full object-cover transition-opacity duration-300"
                     loading="lazy"

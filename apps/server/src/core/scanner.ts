@@ -21,27 +21,33 @@ export class LibraryScanner {
         }
 
         console.log(`Scanning library: ${library.name} (${library.path})`);
-        await this.scanDirectory(library.path, libraryId);
+        await this.scanDirectory(library.path, libraryId, library.type);
     }
 
-    private async scanDirectory(dirPath: string, libraryId: string) {
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    private async scanDirectory(dirPath: string, libraryId: string, type: string) {
+        try {
+            const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
-        for (const entry of entries) {
-            const fullPath = path.join(dirPath, entry.name);
+            for (const entry of entries) {
+                const fullPath = path.join(dirPath, entry.name);
 
-            if (entry.isDirectory()) {
-                await this.scanDirectory(fullPath, libraryId);
-            } else if (entry.isFile()) {
-                const ext = path.extname(entry.name).toLowerCase();
-                if (VIDEO_EXTENSIONS.includes(ext)) {
-                    await this.processVideoFile(fullPath, libraryId);
+                if (entry.isDirectory()) {
+                    await this.scanDirectory(fullPath, libraryId, type);
+                } else if (entry.isFile()) {
+                    const ext = path.extname(entry.name).toLowerCase();
+                    if (VIDEO_EXTENSIONS.includes(ext)) {
+                        await this.scanFile(fullPath, libraryId, type);
+                    }
                 }
             }
+        } catch (err) {
+            console.error(`Error scanning directory ${dirPath}:`, err);
         }
     }
 
-    private async processVideoFile(filePath: string, libraryId: string) {
+
+
+    public async scanFile(filePath: string, libraryId: string, type: string) {
         // Check if exists
         const existing = await db.query.mediaItems.findFirst({
             where: eq(mediaItems.path, filePath),
@@ -63,21 +69,20 @@ export class LibraryScanner {
                 await tx.insert(mediaItems).values({
                     id,
                     libraryId,
-                    type: 'movie',
+                    type,
                     path: filePath,
                     title,
-                    year: new Date().getFullYear(), // Placeholder
+                    year: new Date().getFullYear(), // Placeholder - real parser needed later
                     duration: Math.floor(meta.duration),
                     codec: meta.video?.codec,
                     resolution: meta.video?.resolution,
                     bitrate: Math.floor(meta.bitrate),
                     audioChannels: meta.audio[0]?.channels,
-                    metadata: JSON.stringify({
-                        size: meta.size,
-                        format: meta.format,
-                        width: meta.video?.width,
-                        height: meta.video?.height
-                    }),
+                    width: meta.video?.width,
+                    height: meta.video?.height,
+                    chapters: JSON.stringify(meta.chapters || []),
+                    addedAt: new Date(),
+                    updatedAt: new Date(),
                 });
 
                 // Insert Audio Streams

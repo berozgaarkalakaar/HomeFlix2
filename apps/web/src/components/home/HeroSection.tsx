@@ -22,11 +22,11 @@ export function HeroSection({ item }: HeroSectionProps) {
             {/* Background Image - with fallback style */}
             <div className="absolute inset-0 z-0">
                 <img
-                    src={`/api/items/${item.id}/backdrop`}
+                    src={`/api/v1/items/${item.id}/backdrop`}
                     onError={(e) => {
                         // Fallback to poster if backdrop fails, or a default image
                         const target = e.target as HTMLImageElement;
-                        target.src = `/api/items/${item.id}/poster`;
+                        target.src = `/api/v1/items/${item.id}/poster`;
                     }}
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     alt={item.title}

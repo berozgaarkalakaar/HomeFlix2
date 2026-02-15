@@ -228,6 +228,81 @@ export default function VideoPlayer({ src, itemId, poster, initialTime, onClose 
     };
 
 
+    // -- New State --
+    const [chapters, setChapters] = useState<any[]>([]);
+    const [currentChapter, setCurrentChapter] = useState<any>(null);
+    const [qualityLevel, setQualityLevel] = useState<string>('Original');
+
+    // -- Fetch Metadata (Chapters) --
+    useEffect(() => {
+        axios.get(`/api/v1/library/items/${itemId}`)
+            .then(res => {
+                if (res.data.chapters) {
+                    try {
+                        const parsed = typeof res.data.chapters === 'string'
+                            ? JSON.parse(res.data.chapters)
+                            : res.data.chapters;
+                        setChapters(parsed);
+                    } catch (e) {
+                        console.error("Failed to parse chapters", e);
+                    }
+                }
+            })
+            .catch(console.error);
+    }, [itemId]);
+
+    // -- Check Chapters for Skip --
+    useEffect(() => {
+        if (!chapters.length) return;
+        const current = chapters.find(c => currentTime >= c.start && currentTime < c.end);
+
+        // Only show if title implies Intro/Outro/Recap
+        if (current && /intro|recap|opening/i.test(current.title)) {
+            setCurrentChapter(current);
+        } else {
+            setCurrentChapter(null);
+        }
+    }, [currentTime, chapters]);
+
+    const skipChapter = () => {
+        if (currentChapter) {
+            seek(currentChapter.end);
+        }
+    };
+
+    // -- Quality Change (Non-HLS Transcoding) --
+    const changeTranscodeQuality = (height: number | null) => {
+        setLoading(true);
+        const time = videoRef.current ? videoRef.current.currentTime : 0;
+
+        // Construct new URL
+        const mkUrl = (h: number | null) => {
+            const base = src.split('?')[0]; // Remove existing params
+            return h ? `${base}?height=${h}` : base;
+        };
+
+        const newSrc = mkUrl(height);
+        setQualityLevel(height ? `${height}p` : 'Original');
+
+        if (videoRef.current) {
+            videoRef.current.src = newSrc;
+            videoRef.current.currentTime = time;
+            videoRef.current.play().catch(console.error);
+        }
+    };
+
+    const togglePiP = async () => {
+        try {
+            if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+            } else if (videoRef.current && videoRef.current !== document.pictureInPictureElement) {
+                await videoRef.current.requestPictureInPicture();
+            }
+        } catch (e) {
+            console.error("PiP failed", e);
+        }
+    };
+
     return (
         <div
             ref={containerRef}
@@ -239,18 +314,32 @@ export default function VideoPlayer({ src, itemId, poster, initialTime, onClose 
                 className="w-full h-full object-contain"
                 poster={poster}
                 onClick={togglePlay}
+                playsInline
             />
 
             {/* Spinner */}
             {loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none z-10">
                     <Loader2 className="animate-spin text-primary" size={64} />
+                </div>
+            )}
+
+            {/* Skip Intro Button */}
+            {currentChapter && (
+                <div className="absolute bottom-24 right-8 z-20 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <Button
+                        onClick={skipChapter}
+                        className="bg-white text-black hover:bg-white/90 font-bold px-6 py-6 rounded-lg text-lg shadow-xl transition-transform hover:scale-105"
+                    >
+                        <SkipForward className="mr-2" fill="black" />
+                        Skip {currentChapter.title}
+                    </Button>
                 </div>
             )}
 
             {/* Overlay */}
             <div className={cn(
-                "absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/60 transition-opacity duration-300 flex flex-col justify-between p-6",
+                "absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/60 transition-opacity duration-300 flex flex-col justify-between p-6 z-0",
                 showControls || paused ? "opacity-100" : "opacity-0 cursor-none"
             )}>
                 {/* Top Bar */}
@@ -258,9 +347,6 @@ export default function VideoPlayer({ src, itemId, poster, initialTime, onClose 
                     <Button variant="ghost" className="text-white hover:bg-white/10 rounded-full" onClick={onClose}>
                         <ChevronLeft size={28} />
                     </Button>
-                    <div className="text-right">
-                        {/* We could put title here if we passed it prop */}
-                    </div>
                 </div>
 
                 {/* Center Controls (Play/Pause Big) */}
@@ -337,34 +423,39 @@ export default function VideoPlayer({ src, itemId, poster, initialTime, onClose 
                         </div>
 
                         <div className="flex items-center gap-4">
-                            {/* Quality */}
-                            {qualities.length > 0 && (
+                            {/* Quality - Only show if not HLS (HLS has its own logic, assuming separate for now) */}
+                            {qualities.length === 0 && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <button className="flex items-center gap-1 hover:text-primary text-sm font-bold">
+                                        <button className="flex items-center gap-1 hover:text-primary text-sm font-bold transition-colors">
                                             <Settings size={20} />
-                                            <span className="hidden sm:inline">{currentQuality === -1 ? 'Auto' : `${qualities[currentQuality]?.height}p`}</span>
+                                            <span className="hidden sm:inline">{qualityLevel}</span>
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-40 bg-black/90 border-white/10 text-white">
                                         <DropdownMenuLabel>Quality</DropdownMenuLabel>
                                         <DropdownMenuSeparator className="bg-white/10" />
-                                        <DropdownMenuItem onClick={() => changeQuality(-1)}>
-                                            {currentQuality === -1 && <span className="mr-2">✓</span>} Auto
+                                        <DropdownMenuItem onClick={() => changeTranscodeQuality(null)}>
+                                            Original
                                         </DropdownMenuItem>
-                                        {qualities.map((q) => (
-                                            <DropdownMenuItem key={q.id} onClick={() => changeQuality(q.id)}>
-                                                {currentQuality === q.id && <span className="mr-2">✓</span>} {q.height}p
-                                            </DropdownMenuItem>
-                                        ))}
+                                        <DropdownMenuItem onClick={() => changeTranscodeQuality(1080)}>
+                                            1080p
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => changeTranscodeQuality(720)}>
+                                            720p
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => changeTranscodeQuality(480)}>
+                                            480p
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
 
-                            {/* Subtitles / Audio placeholder */}
-                            <Button variant="ghost" size="icon" className="hover:text-primary">
-                                <Subtitles size={24} />
-                            </Button>
+                            {/* PiP */}
+                            <button onClick={togglePiP} className="hover:text-primary transition-colors" title="Picture in Picture">
+                                <Maximize size={20} className="scale-75" />
+                            </button>
+
 
                             <button onClick={toggleFullscreen} className="hover:text-primary transition-colors">
                                 {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}

@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import fs from 'fs-extra';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { db } from '../db';
+import { mediaItems, libraries } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { scanner } from '../core/scanner';
 
 // Base directories
@@ -97,41 +100,29 @@ export const handleUploadCommit = async (req: any, res: Response) => {
         // We'll expose a public `scanFile(path)` on scanner or just re-scan the library.
         // Let's do a quick lookup of library by type.
 
-        // Trigger generic scan for now (async)
-        // const lib = await db.query.libraries.findFirst({ where: eq(libraries.type, category === 'tv' ? 'series' : category) });
-        // if (lib) scanner.scanLibrary(lib.id);
+        // Explicitly trigger a scan for this file
+        // Map category to library type
+        let libType = 'movie';
+        if (category === 'tv') libType = 'show'; // In schema it is 'show'? Or 'series'?
+        // The libraries table schema comment says: 'movie', 'show', 'music', 'photo'
+        // Let's verify schema again if needed, but assuming 'show' based on previous comments.
+        // Wait, line 17 of schema.ts: type: text('type').notNull(), // 'movie', 'show', 'music', 'photo'
+        // So 'show' is correct.
+        else if (category === 'music') libType = 'music';
+        else if (category === 'photos') libType = 'photo';
 
-        // Better: Scan the specific file directly using our scanner logic refactored or just standard scan.
-        // Let's assume standard scan for now to be safe.
-        // For immediate feedback, we might want to return the ITEM ID.
-        // This requires the scan to run synchronously here or await it.
+        const library = await db.query.libraries.findFirst({
+            where: eq(libraries.type, libType)
+        });
 
-        // Let's wait for scan of this specific file.
-        // I will need to make `processVideoFile` public or similar in scanner.
-        // For now, let's just return success and let background scan pick it up, 
-        // OR we try to inject it.
-
-        // Let's return success immediately.
-
-        res.json({ status: 'ok', path: destRelativePath });
-
-        // Trigger background scan
-        // We need to map category to library type.
-        // movies -> movie
-        // tv -> series
-        // music -> music? (Scanner only does video currently? Check scanner.ts)
-        // scanner.ts only does VIDEO_EXTENSIONS.
-
-        // If it's a video, we scan.
-        if (['.mp4', '.mkv', '.avi', '.mov', '.webm'].includes(path.extname(destPath).toLowerCase())) {
-            // Find library for this file
-            // We can't easily find it without querying DB.
-            // Let's just create a temporary "scan file" entry point.
-            // For now, we omit explicit trigger and rely on library periodic scan or manual trigger.
-            // actually, the user wants "immediately stream them".
-            // So we SHOULD trigger scan.
-
-            // We will implement a `scanner.scanFile(path)` method later.
+        if (library) {
+            console.log(`Triggering immediate scan for new upload: ${destPath}`);
+            // Fire and forget (optional) or await.
+            // Awaiting ensures user sees it immediately after this request returns.
+            // Since scanFile is fast (one file), we await.
+            await scanner.scanFile(destPath, library.id);
+        } else {
+            console.warn(`No library found for type ${libType}, skipping scan.`);
         }
 
     } catch (err: any) {

@@ -38,7 +38,7 @@ export default function ItemDetail() {
         const fetchItem = async () => {
             setLoading(true);
             try {
-                const res = await axios.get(`/api/library/items/${id}`, {
+                const res = await axios.get(`/api/v1/library/items/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setItem(res.data);
@@ -77,8 +77,8 @@ export default function ItemDetail() {
             {playing && (
                 <VideoPlayer
                     itemId={item.id}
-                    src={`/api/stream/${item.id}`}
-                    poster={`/api/items/${item.id}/poster`}
+                    src={`/api/v1/stream/${item.id}`}
+                    poster={`/api/v1/items/${item.id}/poster`}
                     initialTime={item.progressSeconds || 0}
                     onClose={() => setPlaying(false)}
                 />
@@ -89,7 +89,7 @@ export default function ItemDetail() {
                 {/* Backdrop Image */}
                 <div className="absolute inset-0">
                     <img
-                        src={`/api/items/${item.id}/backdrop`}
+                        src={`/api/v1/items/${item.id}/backdrop`}
                         alt=""
                         className={`w-full h-full object-cover transition-opacity duration-1000 ${backdropLoaded ? 'opacity-50' : 'opacity-0'}`}
                         onLoad={() => setBackdropLoaded(true)}
@@ -108,7 +108,7 @@ export default function ItemDetail() {
                     {/* Poster (Hidden on mobile, visible on tablet+) */}
                     <div className="hidden md:block w-[240px] flex-shrink-0 rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10">
                         <img
-                            src={`/api/items/${item.id}/poster`}
+                            src={`/api/v1/items/${item.id}/poster`}
                             alt={item.title}
                             className="w-full h-auto aspect-[2/3] object-cover"
                         />

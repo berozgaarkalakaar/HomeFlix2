@@ -1,6 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg';
 
-
 export interface MediaMetadata {
     duration: number; // seconds
     format: string; // container
@@ -26,6 +25,11 @@ export interface MediaMetadata {
         language?: string;
         label?: string;
         isDefault: boolean;
+    }[];
+    chapters: {
+        title: string;
+        start: number;
+        end: number;
     }[];
 }
 
@@ -67,6 +71,11 @@ export const getMediaMetadata = (filePath: string): Promise<MediaMetadata> => {
                     label: s.tags?.title || s.tags?.label,
                     isDefault: !!s.disposition?.default,
                 })),
+                chapters: metadata.chapters?.map(c => ({
+                    title: c.tags?.title || 'Chapter',
+                    start: c.start_time || 0,
+                    end: c.end_time || 0,
+                })) || []
             };
 
             resolve(result);
