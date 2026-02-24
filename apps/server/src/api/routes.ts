@@ -10,6 +10,7 @@ import path from 'path';
 
 
 import { hashPassword, verifyPassword, generateToken, verifyToken, authenticateToken } from '../core/auth';
+import { handleMountShare } from './system';
 
 const router = Router();
 
@@ -87,13 +88,16 @@ router.post('/libraries', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    if (!fs.existsSync(folderPath)) {
-        return res.status(400).json({ error: 'Path does not exist on server' });
-    }
+    // Allow remote:// paths to bypass local FS check
+    if (!folderPath.startsWith('remote://')) {
+        if (!fs.existsSync(folderPath)) {
+            return res.status(400).json({ error: 'Path does not exist on server' });
+        }
 
-    const stats = fs.statSync(folderPath);
-    if (!stats.isDirectory()) {
-        return res.status(400).json({ error: 'Path is strictly for a file, not a folder. Please link a directory.' });
+        const stats = fs.statSync(folderPath);
+        if (!stats.isDirectory()) {
+            return res.status(400).json({ error: 'Path is strictly for a file, not a folder. Please link a directory.' });
+        }
     }
 
     // Check if already exists
@@ -421,5 +425,8 @@ router.post('/home/preferences', authenticateToken, async (req: any, res) => {
 
     res.json({ status: 'ok' });
 });
+
+// System / Mounts
+router.post('/system/mount', authenticateToken, handleMountShare);
 
 export default router;

@@ -77,3 +77,11 @@ export const watchHistory = sqliteTable('watch_history', {
 }, (table) => ({
     pk: uniqueIndex('user_media_pk').on(table.userId, table.mediaItemId),
 }));
+
+export const networkCredentials = sqliteTable('network_credentials', {
+    id: text('id').primaryKey(),
+    host: text('host').notNull().unique(), // One credential set per host for now
+    username: text('username').notNull(),
+    password: text('password').notNull(), // In a real app, encrypt this!
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+});

@@ -43,32 +43,40 @@ export const handleUploadCommit = async (req: any, res: Response) => {
         const title = metadata.title ? sanitize(metadata.title) : 'Unknown';
         const year = metadata.year ? ` (${metadata.year})` : '';
 
-        if (category === 'movies') {
-            // Structure: movies/Title (Year)/Title (Year).ext
-            const folderName = `${title}${year}`;
-            destRelativePath = path.join('movies', folderName);
-            // Rename file to match folder? Optional. Let's keep original name for simplicity or rename to title.
-            // Let's keep original name to avoid extension guessing issues if not provided.
+        // If relativePath is provided (from folder upload), use it to preserve structure
+        // relativePath typically looks like "GrandParent/Parent/Child.ext"
+        // We want to keep the structure inside the category folder.
+        const claimedRelativePath = metadata.relativePath;
+        const hasRelativePath = claimedRelativePath && claimedRelativePath !== originalFilename;
 
-        } else if (category === 'tv') {
-            // Structure: tv/ShowName/Season X/Episode.ext
-            const show = metadata.show ? sanitize(metadata.show) : 'Unknown Show';
-            const season = metadata.season ? `Season ${metadata.season}` : 'Season 01';
-            destRelativePath = path.join('tv', show, season);
-
-        } else if (category === 'music') {
-            // Structure: music/Artist/Album/Track.ext
-            const artist = metadata.artist ? sanitize(metadata.artist) : 'Unknown Artist';
-            const album = metadata.album ? sanitize(metadata.album) : 'Unknown Album';
-            destRelativePath = path.join('music', artist, album);
-
-        } else if (category === 'photos') {
-            // Structure: photos/Year-Month/Image.ext
-            const date = new Date();
-            const folder = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            destRelativePath = path.join('photos', folder);
+        if (hasRelativePath) {
+            // Sanitize each part of the path to prevent directory traversal
+            const parts = claimedRelativePath.split(/[/\\]/).map(sanitize);
+            // parts[0] is usually the top-level folder name uploaded
+            destRelativePath = path.join(category, ...parts.slice(0, -1)); // All folders
+            destFileName = parts[parts.length - 1]; // Filename
         } else {
-            return res.status(400).json({ error: 'Invalid category' });
+            // Default organization logic (flat or by metadata)
+            if (category === 'movies') {
+                // Structure: movies/Title (Year)/Title (Year).ext
+                const folderName = `${title}${year}`;
+                destRelativePath = path.join('movies', folderName);
+            } else if (category === 'tv') {
+                // Structure: tv/ShowName/Season X/Episode.ext
+                const show = metadata.show ? sanitize(metadata.show) : 'Unknown Show';
+                const season = metadata.season ? `Season ${metadata.season}` : 'Season 01';
+                destRelativePath = path.join('tv', show, season);
+            } else if (category === 'music') {
+                // Structure: music/Artist/Album/Track.ext
+                const artist = metadata.artist ? sanitize(metadata.artist) : 'Unknown Artist';
+                const album = metadata.album ? sanitize(metadata.album) : 'Unknown Album';
+                destRelativePath = path.join('music', artist, album);
+            } else if (category === 'photos') {
+                // Structure: photos/Year-Month/Image.ext
+                const date = new Date();
+                const folder = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                destRelativePath = path.join('photos', folder);
+            }
         }
 
         const destDir = path.join(MEDIA_ROOT, destRelativePath);
@@ -111,9 +119,47 @@ export const handleUploadCommit = async (req: any, res: Response) => {
         else if (category === 'music') libType = 'music';
         else if (category === 'photos') libType = 'photo';
 
-        const library = await db.query.libraries.findFirst({
+        let library = await db.query.libraries.findFirst({
             where: eq(libraries.type, libType)
         });
+
+        if (!library) {
+            console.log(`No existing library found for type ${libType}. Creating default library for uploads.`);
+
+            // Determine default library path
+            // Use 'movies', 'tv', 'music', 'photos' directly from category as base folder name
+            // Ensure consistency with destRelativePath logic above
+            const defaultLibPath = path.join(MEDIA_ROOT, category);
+
+            // Create directory if it doesn't exist (it might exist from previous manual uploads without library entry)
+            await fs.ensureDir(defaultLibPath);
+
+            const newLibId = uuidv4();
+            const newLibName = `Uploaded ${category.charAt(0).toUpperCase() + category.slice(1)}`;
+
+            try {
+                // Insert new library
+                await db.insert(libraries).values({
+                    id: newLibId,
+                    name: newLibName,
+                    type: libType,
+                    path: defaultLibPath
+                });
+
+                library = {
+                    id: newLibId,
+                    name: newLibName,
+                    type: libType,
+                    path: defaultLibPath,
+                } as any; // Cast to bypass strict type inference issues if schema mismatch slightly
+
+                console.log(`Created new default library: ${newLibName} at ${defaultLibPath}`);
+            } catch (libErr) {
+                console.error("Failed to create default library:", libErr);
+                // Continue without scanning rather than failing the whole upload commit, 
+                // though scanning will be skipped below.
+            }
+        }
 
         if (library) {
             console.log(`Triggering immediate scan for new upload: ${destPath}`);
@@ -122,7 +168,7 @@ export const handleUploadCommit = async (req: any, res: Response) => {
             // Since scanFile is fast (one file), we await.
             await scanner.scanFile(destPath, library.id);
         } else {
-            console.warn(`No library found for type ${libType}, skipping scan.`);
+            console.warn(`No library found (and creation failed) for type ${libType}, skipping scan.`);
         }
 
     } catch (err: any) {

@@ -21,6 +21,7 @@ interface MediaDetail {
     // Progress
     progressSeconds?: number;
     completed?: boolean;
+    path?: string;
 }
 
 export default function ItemDetail() {

@@ -7,7 +7,14 @@
         "build": "tsc",
         "start": "node dist/index.js",
         "db:generate": "drizzle-kit generate:sqlite",
-        "db:push": "drizzle-kit push:sqlite"
+        "db:push": "drizzle-kit push:sqlite",
+        "build:satellite": "tsc src/satellite/index.ts --outDir dist/satellite --target es2018 --module commonjs --esModuleInterop && pkg dist/satellite/index.js --targets node18-win-x64 --output public/homeflix-satellite-win.exe"
+    },
+    "pkg": {
+        "assets": [],
+        "targets": [
+            "node18-win-x64"
+        ]
     },
     "dependencies": {
         "@tus/file-store": "^2.0.0",
@@ -34,6 +41,7 @@
         "@types/mime-types": "^2.1.4",
         "@types/uuid": "^9.0.0",
         "drizzle-kit": "^0.20.0",
+        "pkg": "^5.8.1",
         "ts-node-dev": "^2.0.0",
         "typescript": "^5.0.0"
     }

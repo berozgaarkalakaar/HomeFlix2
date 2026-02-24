@@ -40,7 +40,8 @@ export function AddContentModal({ isOpen, onClose }: AddContentModalProps) {
     const [metadata, setMetadata] = useState<any>({});
     const [systemMessage, setSystemMessage] = useState<string | null>(null);
 
-    const [entryType, setEntryType] = useState<'upload' | 'link'>('upload');
+    const [entryType, setEntryType] = useState<'upload' | 'link' | 'mount' | 'remote'>('upload');
+    const [uploadMode, setUploadMode] = useState<'files' | 'folder'>('files');
     const [folderPaths, setFolderPaths] = useState('');
     const [isLinking, setIsLinking] = useState(false);
     const [existingLibraries, setExistingLibraries] = useState<Library[]>([]);
@@ -206,7 +207,8 @@ export function AddContentModal({ isOpen, onClose }: AddContentModalProps) {
                             originalFilename: item.file.name,
                             metadata: {
                                 ...metadata,
-                                title: category === 'movies' && uploads.length === 1 ? metadata.title : undefined
+                                title: category === 'movies' && uploads.length === 1 ? metadata.title : undefined,
+                                relativePath: (item.file as any).webkitRelativePath || item.file.name
                             }
                         }, {
                             headers: { Authorization: `Bearer ${token}` }
@@ -332,7 +334,19 @@ export function AddContentModal({ isOpen, onClose }: AddContentModalProps) {
                                         onClick={() => setEntryType('link')}
                                         className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors", entryType === 'link' ? "bg-primary text-white" : "text-gray-400 hover:text-white")}
                                     >
-                                        Manage Libraries
+                                        Local Path
+                                    </button>
+                                    <button
+                                        onClick={() => setEntryType('mount')}
+                                        className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors", entryType === 'mount' ? "bg-primary text-white" : "text-gray-400 hover:text-white")}
+                                    >
+                                        SMB Share
+                                    </button>
+                                    <button
+                                        onClick={() => setEntryType('remote')}
+                                        className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors", entryType === 'remote' ? "bg-primary text-white" : "text-gray-400 hover:text-white")}
+                                    >
+                                        Remote Windows
                                     </button>
                                 </div>
                             </div>
@@ -342,22 +356,49 @@ export function AddContentModal({ isOpen, onClose }: AddContentModalProps) {
                                     {/* Upload Zone */}
                                     <div className="order-2 md:order-1">
                                         <div className="border-2 border-dashed border-white/10 rounded-2xl p-10 text-center hover:border-primary/50 hover:bg-white/5 transition-all duration-300 cursor-pointer h-full flex flex-col items-center justify-center min-h-[250px] relative group">
+
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                                                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                                                    <Upload size={32} className="text-primary" />
+                                                </div>
+                                                <span className="text-lg font-medium text-white mb-2">
+                                                    {uploadMode === 'folder' ? 'Select Folder' : 'Drag & Drop files or Click'}
+                                                </span>
+                                                <span className="text-sm text-gray-500">
+                                                    {uploadMode === 'folder' ? 'Upload entire directory content' : 'or click to browse'}
+                                                </span>
+                                            </div>
+
                                             <input
                                                 type="file"
                                                 multiple
-                                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                                {...(uploadMode === 'folder' ? { webkitdirectory: "", directory: "" } as any : {})}
+                                                className="absolute inset-0 opacity-0 cursor-pointer z-20"
                                                 onChange={handleFileSelect}
                                             />
-                                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                                <Upload size={32} className="text-primary" />
-                                            </div>
-                                            <span className="text-lg font-medium text-white mb-2">Drag & Drop files here</span>
-                                            <span className="text-sm text-gray-500">or click to browse your computer</span>
-                                            <div className="mt-6 flex gap-2 text-xs text-gray-600 font-mono">
+
+                                            <div className="absolute bottom-6 flex gap-2 text-xs text-gray-600 font-mono z-10 pointer-events-none">
                                                 <span className="px-2 py-1 rounded bg-white/5">MP4</span>
                                                 <span className="px-2 py-1 rounded bg-white/5">MKV</span>
                                                 <span className="px-2 py-1 rounded bg-white/5">MP3</span>
                                                 <span className="px-2 py-1 rounded bg-white/5">JPG</span>
+                                            </div>
+
+                                            <div className="absolute top-4 right-4 z-30 pointer-events-auto">
+                                                <div className="flex bg-white/10 rounded-lg p-1 text-xs font-medium">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setUploadMode('files'); }}
+                                                        className={cn("px-3 py-1 rounded transition-colors", uploadMode === 'files' ? "bg-white/20 text-white" : "text-gray-400 hover:text-white")}
+                                                    >
+                                                        Files
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setUploadMode('folder'); }}
+                                                        className={cn("px-3 py-1 rounded transition-colors", uploadMode === 'folder' ? "bg-white/20 text-white" : "text-gray-400 hover:text-white")}
+                                                    >
+                                                        Folder
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                         {systemMessage && (
@@ -421,6 +462,10 @@ export function AddContentModal({ isOpen, onClose }: AddContentModalProps) {
                                         </div>
                                     </div>
                                 </div>
+                            ) : entryType === 'mount' ? (
+                                <NetworkMountForm token={token} category={category} onSuccess={fetchLibraries} />
+                            ) : entryType === 'remote' ? (
+                                <RemoteServerForm token={token} category={category} onSuccess={fetchLibraries} />
                             ) : (
                                 /* Link Folder & Manage Libraries UI */
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -438,15 +483,22 @@ export function AddContentModal({ isOpen, onClose }: AddContentModalProps) {
                                             </div>
 
                                             <div className="space-y-2">
-                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Folder Paths (Server Side)</label>
+                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Folder Paths (Server Side Only)</label>
+                                                <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-xs text-orange-200 mb-2">
+                                                    <p className="font-bold flex items-center gap-2"><AlertCircle size={14} /> Important</p>
+                                                    <p className="mt-1 opacity-90">
+                                                        This feature links folders that <strong>already exist on the machine running HomeFlix server</strong>.
+                                                        If you are on a phone/laptop, typing a local path here will NOT work. Use the "Upload File" tab instead.
+                                                    </p>
+                                                </div>
                                                 <textarea
                                                     className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none font-mono min-h-[120px] resize-none"
-                                                    placeholder={window.navigator.platform.includes('Win') ? "C:\\Users\\Name\\Movies\nD:\\Backup\\TV Shows" : "/Users/name/Movies\n/Volumes/External/TV"}
+                                                    placeholder={window.navigator.platform.includes('Win') ? "C:\\Users\\ServerUser\\Movies" : "/Users/server-user/Movies"}
                                                     value={folderPaths}
                                                     onChange={(e) => setFolderPaths(e.target.value)}
                                                 />
-                                                <p className="text-xs text-orange-400/80 mt-1">
-                                                    * Ensure the server has read permissions.
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    * Ensure the server process has read permissions to these folders.
                                                 </p>
                                             </div>
 
@@ -621,6 +673,226 @@ export function AddContentModal({ isOpen, onClose }: AddContentModalProps) {
                     </div>
                     {category && <span>Target: {category.toUpperCase()}</span>}
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function RemoteServerForm({ token, category, onSuccess }: { token: string | null, category: string, onSuccess: () => void }) {
+    const [ip, setIp] = useState('');
+    const [port, setPort] = useState('3100');
+    const [remotePath, setRemotePath] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const handleConnect = async () => {
+        if (!ip || !remotePath) return;
+
+        setLoading(true);
+        setMsg(null);
+        try {
+            // Construct remote://IP:PORT/Path
+            // We encode the path component to handle slashes/colons safely
+            // But we want it readable? Protocol usually handles encoded path.
+            // Let's use standard URL encoding for the path part.
+            const url = `remote://${ip}:${port}/${encodeURIComponent(remotePath)}`;
+
+            await axios.post('/api/v1/libraries', {
+                name: `${category.charAt(0).toUpperCase() + category.slice(1)} (Remote)`,
+                type: category === 'tv' ? 'show' : category === 'movies' ? 'movie' : category === 'music' ? 'music' : 'photo',
+                path: url
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setMsg('Success! Connected to Remote Server.');
+            onSuccess();
+        } catch (err: any) {
+            setMsg('Error: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="max-w-xl mx-auto space-y-6">
+            <div className="bg-white/5 p-8 rounded-2xl border border-white/10 space-y-6">
+                <div className="text-center">
+                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-3 text-blue-400">
+                        <FolderOpen size={24} />
+                    </div>
+                    <h4 className="text-lg font-bold text-white">Connect Remote Server (Windows)</h4>
+                    <p className="text-xs text-gray-400 mt-2">
+                        Connect to HomeFlix running on another PC without mounting.
+                    </p>
+                    <a href="/downloads/homeflix-satellite-win.exe" download className="inline-block mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-primary transition-colors">
+                        ⬇ Download Windows Server App (.exe)
+                    </a>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-2 space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Remote IP</label>
+                            <input
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none font-mono"
+                                placeholder="192.168.1.50"
+                                value={ip}
+                                onChange={e => setIp(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Port</label>
+                            <input
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none font-mono"
+                                value={port}
+                                onChange={e => setPort(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Remote Folder Path</label>
+                        <input
+                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none font-mono"
+                            placeholder="D:\Movies"
+                            value={remotePath}
+                            onChange={e => setRemotePath(e.target.value)}
+                        />
+                        <p className="text-[10px] text-gray-500">Enter the absolute path on the REMOTE machine.</p>
+                    </div>
+                </div>
+
+                <Button
+                    onClick={handleConnect}
+                    disabled={loading || !ip || !remotePath}
+                    className="w-full py-6 text-base bg-blue-600 hover:bg-blue-700 mt-4"
+                >
+                    {loading ? <Loader2 className="animate-spin" /> : 'Connect'}
+                </Button>
+
+                {msg && (
+                    <div className={cn("mt-4 p-3 rounded-lg text-center text-sm", msg.includes('Error') ? "bg-red-500/10 text-red-200" : "bg-green-500/10 text-green-200")}>
+                        {msg}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function NetworkMountForm({ token, category, onSuccess }: { token: string | null, category: string, onSuccess: () => void }) {
+    const [rawPath, setRawPath] = useState('');
+    const [useCreds, setUseCreds] = useState(false);
+
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const handleMount = async () => {
+        // Validation: Need path OR host+share
+        if (!rawPath) return;
+
+        setLoading(true);
+        setMsg(null);
+        try {
+            await axios.post('/api/v1/system/mount', {
+                path: rawPath,
+                username, password, category
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setMsg('Success! Network share mounted and added to library.');
+            // Clear sensitive data on success
+            setPassword('');
+            onSuccess();
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || err.message;
+            setMsg('Error: ' + errorMsg);
+
+            // Auto-prompt for credentials if auth failed
+            if (errorMsg.includes('Authentication failed') || errorMsg.includes('Permission denied') || errorMsg.includes('Access denied')) {
+                setUseCreds(true);
+                setMsg('Authentication required. Please enter username and password from the server setup.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+    return (
+        <div className="max-w-xl mx-auto space-y-6">
+            <div className="bg-white/5 p-8 rounded-2xl border border-white/10 space-y-6">
+                <div className="text-center">
+                    <div className="w-12 h-12 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-3 text-indigo-400">
+                        <FolderOpen size={24} />
+                    </div>
+                    <h4 className="text-lg font-bold text-white">Connect Network Share (SMB)</h4>
+                    <p className="text-xs text-gray-400 mt-2">
+                        Connect to a shared folder on another computer (Windows/Mac/Linux) over WiFi.
+                    </p>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Network Path</label>
+                        <div className="relative">
+                            <input
+                                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-3 text-sm text-white focus:border-indigo-500 outline-none font-mono placeholder:text-gray-700"
+                                placeholder={window.navigator.platform.includes('Win') ? "\\\\MY-SERVER\\Movies" : "smb://192.168.1.10/Movies"}
+                                value={rawPath}
+                                onChange={e => setRawPath(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <p className="text-[10px] text-gray-500">Supported: UNC (\\Host\Share) or SMB (smb://Host/Share)</p>
+                            <button
+                                onClick={() => setUseCreds(!useCreds)}
+                                className="text-[10px] text-primary hover:text-white underline transition-colors"
+                            >
+                                {useCreds ? "Hide Credentials" : "Need Login?"}
+                            </button>
+                        </div>
+                    </div>
+
+                    {useCreds && (
+                        <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Username</label>
+                                <input
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+                                    placeholder="Guest"
+                                    value={username}
+                                    onChange={e => setUsername(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Password</label>
+                                <input
+                                    type="password"
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+                                    placeholder="..."
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <Button
+                    onClick={handleMount}
+                    disabled={loading || !rawPath}
+                    className="w-full py-6 text-base bg-indigo-600 hover:bg-indigo-700 mt-4"
+                >
+                    {loading ? <Loader2 className="animate-spin" /> : 'Connect & Scan'}
+                </Button>
+
+                {msg && (
+                    <div className={cn("mt-4 p-3 rounded-lg text-center text-sm", msg.includes('Error') ? "bg-red-500/10 text-red-200" : "bg-green-500/10 text-green-200")}>
+                        {msg}
+                    </div>
+                )}
             </div>
         </div>
     );
